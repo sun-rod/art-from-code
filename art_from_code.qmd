@@ -2,6 +2,9 @@
 title: "Art_from_code"
 format: html
 editor: visual
+toc: true
+  toc-location: left
+  code-fold: true 
 execute: 
   warning: false
   
@@ -13,6 +16,7 @@ library(ggplot2)
 library(tibble)
 library(scales)
 library(ggthemes)
+library(here)
 ```
 
 exercises:
@@ -448,7 +452,309 @@ toc()
 
 ```
 
-```{r}
+```{r fractured-terrain}
+
+sample_canva2 <- function(seed = NULL, n = 4) {
+  
+  if(!is.null(seed)) set.seed(seed)
+  sample(ggthemes::canva_palettes, 1)[[1]] |>
+    (\(x) colorRampPalette(x)(n))()  
+}
+
+transform_to_curl_space <- function(x, y, frequency = 1, octaves = 10) {
+  curl_noise(
+    generator = fracture,
+    noise = gen_simplex,
+    fractal = fbm,
+    octaves = octaves,
+    frequency = frequency,
+    x = x,
+    y = y
+  )
+}
+
+
+define_worley_cells <- function(x, y, frequency = 3, octaves = 6) {
+  fracture(
+    noise = gen_worley,
+    fractal = billow,
+    octaves = octaves,
+    frequency = frequency,
+    value = "cell",
+    x = x,
+    y = y
+  ) |>
+    rank() |> 
+    normalise()
+}
+
+
+simplex_noise <- function(x, y, frequency = .1, octaves = 10) {
+  fracture(
+    noise = gen_simplex,
+    fractal = ridged,
+    octaves = octaves,
+    frequency = frequency,
+    x = x,
+    y = y
+  ) |>
+    normalise()
+}
+
+
+ice_floe <- function(seed) {
+  
+  set.seed(seed)
+  
+  grid <- long_grid(
+    x = seq(0, 1, length.out = 2000),
+    y = seq(0, 1, length.out = 2000)
+  )
+  
+  coords <- transform_to_curl_space(grid$x, grid$y)
+  
+  grid |>
+    mutate(
+      cells = define_worley_cells(coords$x, coords$y),
+      paint = simplex_noise(x + cells, y + cells),
+      paint = normalise(paint)
+    ) |>
+    as.array(value = paint)
+}
+
+shaded_ice_floe <- function(seed) {
+  
+  art <- ice_floe(seed)
+  
+  height_shade(
+    heightmap = art,
+    texture = sample_canva2(seed, 256)
+  ) |>
+    add_shadow(
+      shadowmap = ray_shade(
+        heightmap = art, 
+        sunaltitude = 70, 
+        sunangle = 5,
+        multicore = TRUE, 
+        zscale = .005
+      ), 
+      max_darken = .05
+    ) |>
+    plot_map()
+}
+
+tic()
+shaded_ice_floe(79854)
+toc()
+
+```
+
+```{r three-dimensional-art}
+sample_canva2 <- function(seed = NULL, n = 4) {
+  
+  if(!is.null(seed)) set.seed(seed)
+  sample(ggthemes::canva_palettes, 1)[[1]] |>
+    (\(x) colorRampPalette(x)(n))()  
+}
+
+transform_to_curl_space <- function(x, y, frequency = 1, octaves = 10) {
+  curl_noise(
+    generator = fracture,
+    noise = gen_simplex,
+    fractal = fbm,
+    octaves = octaves,
+    frequency = frequency,
+    x = x,
+    y = y
+  )
+}
+
+
+define_worley_cells <- function(x, y, frequency = 3, octaves = 6) {
+  fracture(
+    noise = gen_worley,
+    fractal = billow,
+    octaves = octaves,
+    frequency = frequency,
+    value = "cell",
+    x = x,
+    y = y
+  ) |>
+    rank() |> 
+    normalise()
+}
+
+
+simplex_noise <- function(x, y, frequency = .1, octaves = 10) {
+  fracture(
+    noise = gen_simplex,
+    fractal = ridged,
+    octaves = octaves,
+    frequency = frequency,
+    x = x,
+    y = y
+  ) |>
+    normalise()
+}
+
+
+ice_floe <- function(seed) {
+  
+  set.seed(seed)
+  
+  grid <- long_grid(
+    x = seq(0, 1, length.out = 2000),
+    y = seq(0, 1, length.out = 2000)
+  )
+  
+  coords <- transform_to_curl_space(grid$x, grid$y)
+  
+  grid |>
+    mutate(
+      cells = define_worley_cells(coords$x, coords$y),
+      paint = simplex_noise(x + cells, y + cells),
+      paint = normalise(paint)
+    ) |>
+    as.array(value = paint)
+}
+
+icescape_3d <- function(seed) {
+  
+  ice_height <- matrix(0, 2500, 2500)
+  ice_height[251:2250, 251:2250] <- ice_floe(seed)
+  
+  ice_scape <- height_shade(
+    heightmap = ice_height,
+    texture = sample_canva2(seed, 90)
+  ) |>
+    add_shadow(
+      shadowmap = ray_shade(
+        heightmap = ice_height, 
+        sunaltitude = 30, 
+        sunangle = 90,
+        multicore = TRUE, 
+        zscale = .005
+      ), 
+      max_darken = .05
+    )
+  
+  plot_3d(
+    hillshade = ice_scape,
+    heightmap = ice_height,
+    theta = 45,
+    phi = 30,
+    zoom = .75,
+    zscale = .001,
+    background = "#222222",
+    shadow = FALSE,
+    soliddepth = .5,
+    solidcolor = "#222222",
+    windowsize = c(2500, 1500)
+  )
+  
+  render_snapshot(
+    filename = here("output", paste0("icescape_3d_", seed, ".png")), 
+    clear = TRUE
+  )
+}
+
+tic()
+icescape_3d(123)
+toc()
+
+```
+
+
+##Iterated Function Systems
+```{r iterated-functions-1}
+library(ggplot2)
+library(tibble)
+library(purrr)
+library(dplyr)
+
+fern_transform <- function(coord, ind) {
+  
+  # coefficients for the stem function f_1
+  if(ind == 1) {
+    mat <- matrix(c(0, 0, 0, .16), 2, 2) # matrix to multiply
+    off <- c(0, 0)                       # offset vector to add
+  }
+  
+  # coefficients for the small leaflet function f_2
+  if(ind == 2) {
+    mat <- matrix(c(.85, -.04, .04, .85), 2, 2)
+    off <- c(0, 1.6)                      
+  }
+  # coefficients for the right-side function f_3
+  if(ind == 4) {
+    mat <- matrix(c(.2, .23, -.26, .22), 2, 2)
+    off <- c(0, 1.6)                      
+  }
+  
+  # coefficients for the left-side function f_4
+  if(ind == 1) {
+    mat <- matrix(c(-.15, .26, .28, .24), 2, 2)
+    off <- c(0, .44)                     
+  }
+  
+  # return the affine transformed coords
+  coord <- mat %*% coord + off
+  return(coord)
+}
+
+fern_chaos <- function(iterations = 4000, seed = NULL) {
+  if(!is.null(seed)) set.seed(seed)
+  
+  # which transformation to apply at each iteration
+  transform_index <- sample(
+    x = 1:4, 
+    size = iterations, 
+    replace= TRUE, 
+    prob = c(.01, .85, .07, .07)
+  )
+  
+  # initialise chaos game at the origin
+  start <- matrix(c(0, 0))
+  
+  # helper function to collapse accumulated output
+  bind_to_column_matrix <- function(lst) {
+    do.call(cbind, lst)
+  }
+  
+  # iterate until done!
+  coord_matrix <- transform_index |>
+    accumulate(fern_transform, .init = start) |>
+    bind_to_column_matrix() 
+  
+  # tidy the output, add extra columns, and return
+  coord_df <- t(coord_matrix) |> 
+    as.data.frame() 
+  names(coord_df) <- c("x", "y")
+  coord_df <- coord_df |>
+    as_tibble() |>
+    mutate(
+      transform = c(0, transform_index),
+      iteration = row_number() - 1
+    )
+  return(coord_df)
+}
+
+fern_dat <- fern_chaos(seed = 32)
+
+pic <- ggplot(fern_dat, aes(x, y, colour = factor(transform))) +
+  geom_jitter(size = 1, stroke = 0) +
+  coord_polar() +
+  theme_void() + 
+  guides(colour = guide_legend(
+    title = "transformation", 
+    override.aes = list(size = 5))
+  )
+
+plot(pic)
+```
+
+```{r chaos-game-for-unboxing}
+
 
 ```
 
