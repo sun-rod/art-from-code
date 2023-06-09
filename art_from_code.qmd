@@ -4,23 +4,315 @@ format: html
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
-```{r}
-1 + 1
+## Getting Started
+```{r loading-packages}
+library(ggplot2)
+library(tibble)
+library(scales)
+library(ggthemes)
 ```
 
-You can add options to executable code like this
-
+exercises:
 ```{r}
-#| echo: false
-2 * 2
+mpg |>
+  ggplot(aes(displ, hwy, colour = drv)) + 
+  geom_jitter(show.legend = FALSE, size = 10) + 
+  geom_point(show.legend = FALSE, size = 1, colour = "#73ECF6") + 
+  coord_polar() + 
+  theme_void() + 
+  scale_color_hue()
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+```{r}
+library(ggplot2)
+library(tibble)
+
+polar_art <- function(seed, n, palette) {
+  
+  # set the state of the random number generator
+  set.seed(6995)
+  
+  # data frame containing random values for 
+  # aesthetics we might want to use in the art
+  dat <- tibble(
+    x0 = runif(n),
+    y0 = runif(n),
+    x1 = x0 + runif(n, min = -.2, max = .2),
+    y1 = y0 + runif(n, min = -.2, max = .2),
+    shade = runif(n), 
+    size = runif(n)
+  )
+  
+  # plot segments in various colours, using 
+  # polar coordinates and a gradient palette
+  dat |> 
+    ggplot(aes(
+      x = x0,
+      y = y0,
+      xend = x1,
+      yend = y1,
+      colour = shade,
+      size = size
+    )) +
+    geom_segment(show.legend = FALSE) +
+    coord_polar() +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_x_continuous(expand = c(0, 0)) + 
+    scale_colour_gradientn(colours = palette) + 
+    scale_size(range = c(0, 10)) + 
+    theme_void()
+}
+
+polar_art(
+  seed = 32, 
+  n = 1000, 
+  palette = c("red", "black", "white")
+)
+
+```
+
+
+```{r technique-exercises}
+library(ggplot2)
+library(tibble)
+
+# I think we made a separate document so we have a backup of the function 
+# in case we break it
+
+polar_art <- function(seed, n, palette) {
+  
+  # set the state of the random number generator
+  set.seed(398)
+  
+  # data frame containing random values for 
+  # aesthetics we might want to use in the art
+  dat <- tibble(
+    x0 = runif(n),
+    y0 = runif(n),
+    x1 = x0 + runif(n, min = -.12, max = .52),
+    y1 = y0 + runif(n, min = -.92, max = .22),
+    shade = runif(n), 
+    size = runif(n)
+  )
+  
+  # plot segments in various colours, using 
+  # polar coordinates and a gradient palette
+  dat |> 
+    ggplot(aes(
+      x = x0,
+      y = y0,
+      xend = x1,
+      yend = y1,
+      colour = shade,
+      size = size
+    )) +
+    geom_segment(show.legend = FALSE) +
+    coord_polar() +
+    scale_y_continuous(expand = c(0, 0)) +
+    scale_x_continuous(expand = c(0, 0)) + 
+    scale_colour_gradientn(colours = palette) + 
+    scale_size(range = c(0, 1)) + 
+    theme_void()
+}
+
+polar_art(
+  seed = 32, 
+  n = 1000, 
+  palette = palette = c("red", "black", "white")
+)
+
+```
+
+```{r color}
+library(ggthemes)
+
+# the original function from the first session
+sample_canva <- function(seed = NULL) {
+  if(!is.null(seed)) set.seed(seed)
+  sample(ggthemes::canva_palettes, 1)[[1]]
+}
+
+# the extended function used in later sessions
+sample_canva2 <- function(seed = NULL, n = 4) {
+  if(!is.null(seed)) set.seed(seed)
+  sample(ggthemes::canva_palettes, 1)[[1]] |>
+    (\(x) colorRampPalette(x)(n))()  
+}
+sample_canva() %>% 
+  show_col()
+
+```
+
+```{r color-2}
+#making a function
+sample_named_colors <- function(n) {
+  possible_colors <- colours(distinct = TRUE) 
+  sample(possible_colors, n)[[1]]
+}
+
+#sample_named_colors(10) %>% 
+ # show_col()
+
+n <- 90
+colors <- sample_named_colors(n)
+colors <- factor(colors)
+
+polar_art(seed = 40, n = n, palette = colors)  
+  scale_color_manual(values = as.character(unique(colors)))
+
+
+```
+
+```{r color-3}
+sample_canva_unlist <- function(seed = NULL) {
+  if(!is.null(seed)) set.seed(seed)
+  sample(unlist(ggthemes::canva_palettes, 1))[[1]]
+}
+
+sample_canva_unlist() %>% 
+  show_col()
+```
+
+```{r composition}
+library(ggplot2)
+library(tibble)
+library(dplyr)
+
+sample_canva <- function(seed = NULL) {
+  if(!is.null(seed)) set.seed(seed)
+  sample(ggthemes::canva_palettes, 1)[[1]]
+}
+
+sample_data <- function(seed = NULL, n = 100){
+  if(!is.null(seed)) set.seed(seed)
+  dat <- tibble(
+    x0 = runif(n),
+    y0 = runif(n),
+    x1 = x0 + runif(n, min = -.2, max = .2),
+    y1 = y0 + runif(n, min = -.2, max = .2),
+    shade = runif(n), 
+    size = runif(n),
+    shape = factor(sample(0:22, size = n, replace = TRUE))
+  )
+}
+
+polar_styled_plot <- function(data = NULL, palette) {
+  ggplot(
+    data = data,
+    mapping = aes(
+      x = x0,
+      y = y0,
+      xend = x1,
+      yend = y1,
+      colour = shade,
+      size = size
+    )) + 
+    coord_polar(clip = "off") +
+    scale_y_continuous(
+      expand = c(0, 0),
+      limits = c(0, 1), 
+      oob = scales::oob_keep
+    ) +
+    scale_x_continuous(
+      expand = c(0, 0), 
+      limits = c(0, 1), 
+      oob = scales::oob_keep
+    ) + 
+    scale_colour_gradientn(colors = palette) + 
+    scale_size(range = c(0, 10)) + 
+    theme_void() + 
+    guides(
+      colour = guide_none(),
+      size = guide_none(),
+      fill = guide_none(),
+      shape = guide_none()
+    )
+}
+
+dat <- sample_data(n = 100, seed = 1) 
+pal <- sample_canva(seed = 50)
+
+polar_styled_plot(data = dat, palette = pal) + geom_point()
+
+library(dplyr)
+
+dat1 <- sample_data(n = 2000, seed = 123) 
+dat2 <- sample_data(n = 100, seed = 456) |>  
+  mutate(y0 = .3 + y0 * .6, y1 = .3)
+
+polar_styled_plot(palette = sample_canva(seed = 381)) + 
+  geom_jitter(
+    data = dat1 |> mutate(size = size * .3)
+  ) + 
+  geom_segment(
+    data = dat2 |> mutate(size = size / .5), 
+    lineend = "round", 
+    colour = "white"
+  ) +
+  geom_segment(
+    data = dat2 |> mutate(size = size / .40), 
+    lineend = "round", 
+    colour = "#222122"
+  ) +
+  geom_point(
+    data = dat2 |> mutate(size = size * 2),
+    colour = "#216222"
+  )
+```
+
+```{r composition-2}
+# making a new overarching style function
+my_styled_plot <- function(data = NULL, palette) {
+  ggplot(
+    data = data,
+    mapping = aes(
+      x = x0,
+      y = y0,
+      xend = x1,
+      yend = y1,
+      colour = shade,
+      size = size
+    )) + 
+    coord_map(clip = "off") +
+    scale_y_continuous(
+      expand = c(0, 0),
+      limits = c(0, 1), 
+      oob = scales::oob_keep
+    ) +
+    scale_x_continuous(
+      expand = c(0, 0), 
+      limits = c(0, 1), 
+      oob = scales::oob_keep
+    ) + 
+    scale_colour_gradientn(colors = palette) + 
+    scale_size(range = c(0, 5)) + 
+    theme_void() + 
+    guides(
+      colour = guide_none(),
+      size = guide_none(),
+      fill = guide_none(),
+      shape = guide_none()
+    )
+}
+```
+```{r}
+
+my_styled_plot(data = dat, palette = pal) + geom_point()
+```
+
+
+
+##Shading exercises
+
+```{r loading-packages}
+library(rayshader)
+library(tibble)
+library(ambient)
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+library(tictoc)
+library(dplyr)
+
+```
+
