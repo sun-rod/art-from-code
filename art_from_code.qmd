@@ -9,6 +9,8 @@ execute:
   warning: false
   
 ---
+This exercise was interesting and showed me that there are a lot more things that R is capable of doing than I originally thought. Although there were some familiar names and processes, like using ggplot, I learned a bunch of new things. I like understanding how the code works, which worked for a bit, but I got lost when the code got too complicated. I want to know what each line corresponds to in the final product, but that's hard when there are so many objects and functions that I've never heard of. I look at the help pages frequently to try to understand what's going on. The entire write-up that we worked from was very helpful too. It's just hard to keep up when everything builds on each other. Not understanding one part can lead to you not understanding how the final product was made, which makes problems really hard to troubleshoot. I ran into some problems doing this exercise, which is why I mostly stuck to changing seeds, colors, and plot geometries, since I understood those and knew I wouldn't break the entire code by changing those. My biggest take away from this is the versatility of R. 
+
 
 ## Getting Started
 ```{r loading-packages, echo = FALSE}
@@ -226,6 +228,7 @@ polar_styled_plot <- function(data = NULL, palette) {
       oob = scales::oob_keep
     ) + 
     scale_colour_gradientn(colors = palette) + 
+    # changed upper limit
     scale_size(range = c(0, 10)) + 
     theme_void() + 
     guides(
@@ -248,21 +251,27 @@ dat2 <- sample_data(n = 100, seed = 456) |>
   mutate(y0 = .3 + y0 * .6, y1 = .3)
 
 polar_styled_plot(palette = sample_canva(seed = 381)) + 
+  # changed geom
   geom_jitter(
     data = dat1 |> mutate(size = size * .3)
   ) + 
   geom_segment(
+    #changed size
     data = dat2 |> mutate(size = size / .5), 
     lineend = "round", 
     colour = "white"
   ) +
   geom_segment(
+    #changed size
     data = dat2 |> mutate(size = size / .40), 
     lineend = "round", 
+    #changed color
     colour = "#222122"
   ) +
   geom_point(
+    #changed size
     data = dat2 |> mutate(size = size * 2),
+    #changed color
     colour = "#216222"
   )
 ```
@@ -311,7 +320,7 @@ my_styled_plot(data = dat, palette = pal) + geom_point()
 
 ##Shading exercises
 
-```{r loading-packages-2}
+```{r loading-packages-2, echo=FALSE}
 library(rayshader)
 library(tibble)
 library(ambient)
@@ -324,15 +333,6 @@ library(dplyr)
 ```
 
 ```{r rayshader-art}
-library(rayshader)
-library(tibble)
-library(ambient)
-library(dplyr)
-library(ggplot2)
-library(ggthemes)
-library(tictoc)
-library(dplyr)
-
 is_within_circle <- function(x_coord, y_coord, x_center, y_center, radius) {
   (x_coord - x_center)^2 + (y_coord - y_center)^2 < radius^2
 }
@@ -369,6 +369,7 @@ additive_circles <- function(n = 10, pixels = 1000, seed = NULL) {
   return(art)
 }
 
+#changed seed
 circle_art <- additive_circles(seed = 8590)
 
 circle_array <- circle_art |>
@@ -376,6 +377,7 @@ circle_array <- circle_art |>
 
 circle_shadow <- ray_shade(
   heightmap = circle_array,
+  #changed sun altitude and angle
   sunaltitude = 20, 
   sunangle = 60,
   zscale = .01,
@@ -417,6 +419,7 @@ ridge_art <- function(seed = NULL, pixels = 2000) {
         y = y,
         noise = gen_simplex,
         fractal = ridged,
+        #changed octaves and freq
         octaves = 8,
         frequency = 50,
         seed = seed
@@ -436,6 +439,7 @@ shaded_ridge_art <- function(seed = NULL) {
     add_shadow(
       shadowmap = ray_shade(
         heightmap = art, 
+        #changed sun altitude and angle
         sunaltitude = 15, 
         sunangle = 135,
         multicore = TRUE, 
@@ -533,6 +537,7 @@ shaded_ice_floe <- function(seed) {
     add_shadow(
       shadowmap = ray_shade(
         heightmap = art, 
+        #changed sun altitude and angle
         sunaltitude = 70, 
         sunangle = 5,
         multicore = TRUE, 
@@ -625,6 +630,7 @@ icescape_3d <- function(seed) {
   
   ice_scape <- height_shade(
     heightmap = ice_height,
+    #changed seed
     texture = sample_canva2(seed, 90)
   ) |>
     add_shadow(
@@ -739,10 +745,13 @@ fern_chaos <- function(iterations = 4000, seed = NULL) {
   return(coord_df)
 }
 
+#changed seed
 fern_dat <- fern_chaos(seed = 32)
 
 pic <- ggplot(fern_dat, aes(x, y, colour = factor(transform))) +
+  #changed geom
   geom_jitter(size = 1, stroke = 0) +
+  #changed coord
   coord_polar() +
   theme_void() + 
   guides(colour = guide_legend(
@@ -844,6 +853,7 @@ unbox_art <- function(data, seed = NULL, size = 10) {
 
 tic()
 
+#changed seed
 seed <- 534
 layers <- 5
 
@@ -874,6 +884,7 @@ dat <- unboxer_rcpp(1000000, layers = 2)
 toc() 
 
 tic()
+#changed seed
 dat |> unbox_art(seed = 90343, size = .1)
 toc()
 
@@ -894,6 +905,7 @@ pretty_boxes <- function(
     iterations = 100000000, 
     layers = 5, 
     pixels = 4000, 
+    #changed background
     background = "brown",
     border = 4,
     trim = .001
@@ -908,6 +920,7 @@ pretty_boxes <- function(
     border = border
   )
   
+  #changed seed
   shades <- c(background, sample_canva2(seed, n = 13233))
   
   zlim <- quantile(mat, c(trim, 1 - trim))
@@ -928,6 +941,155 @@ pretty_boxes <- function(
 tic()
 pretty_boxes(1121, iterations = 10000000)
 toc()
+
+
+```
+
+##Putting it all together
+
+```{r combining-shading-and-iterated-function-systems, eval = FALSE}
+
+# whatever I did here takes a really long time to run and it was still plotting after 5 minutes so I decided to set eval to false
+fern_transform <- function(coord, ind) {
+  
+  # coefficients for the stem function f_1
+  if(ind == 1) {
+    mat <- matrix(c(0, 0, 0, .16), 2, 2) # matrix to multiply
+    off <- c(0, 0)                       # offset vector to add
+  }
+  
+  # coefficients for the small leaflet function f_2
+  if(ind == 2) {
+    mat <- matrix(c(.85, -.04, .04, .85), 2, 2)
+    off <- c(0, 1.6)                      
+  }
+  # coefficients for the right-side function f_3
+  if(ind == 4) {
+    mat <- matrix(c(.2, .23, -.26, .22), 2, 2)
+    off <- c(0, 1.6)                      
+  }
+  
+  # coefficients for the left-side function f_4
+  if(ind == 1) {
+    mat <- matrix(c(-.15, .26, .28, .24), 2, 2)
+    off <- c(0, .44)                     
+  }
+  
+  # return the affine transformed coords
+  coord <- mat %*% coord + off
+  return(coord)
+}
+
+fern_chaos <- function(iterations = 4000, seed = NULL) {
+  if(!is.null(seed)) set.seed(seed)
+  
+  # which transformation to apply at each iteration
+  transform_index <- sample(
+    x = 1:4, 
+    size = iterations, 
+    replace= TRUE, 
+    prob = c(.01, .85, .07, .07)
+  )
+  
+  # initialise chaos game at the origin
+  start <- matrix(c(0, 0))
+  
+  # helper function to collapse accumulated output
+  bind_to_column_matrix <- function(lst) {
+    do.call(cbind, lst)
+  }
+  
+  # iterate until done!
+  coord_matrix <- transform_index |>
+    accumulate(fern_transform, .init = start) |>
+    bind_to_column_matrix() 
+  
+  # tidy the output, add extra columns, and return
+  coord_df <- t(coord_matrix) |> 
+    as.data.frame() 
+  names(coord_df) <- c("x", "y")
+  coord_df <- coord_df |>
+    as_tibble() |>
+    mutate(
+      transform = c(0, transform_index),
+      iteration = row_number() - 1
+    )
+  return(coord_df)
+}
+
+fern_dat <- fern_chaos(seed = 32)
+
+pic <- ggplot(fern_dat, aes(x, y, colour = factor(transform))) +
+  geom_jitter(size = 1, stroke = 0) +
+  coord_polar() +
+  theme_void() + 
+  guides(colour = guide_legend(
+    title = "transformation", 
+    override.aes = list(size = 5))
+  )
+
+is_within_circle <- function(x_coord, y_coord, x_center, y_center, radius) {
+  (x_coord - x_center)^2 + (y_coord - y_center)^2 < radius^2
+}
+
+additive_circles <- function(n = 10, pixels = 1000, seed = NULL) {
+  
+  if(!is.null(seed)) set.seed(seed)
+  
+  # setup canvas
+  art <- long_grid(
+    x = seq(0, 1, length.out = pixels),
+    y = seq(0, 1, length.out = pixels)
+  )
+  art$paint <- 0
+  
+  for(i in 1:n) {
+    
+    # sample a random circle
+    x_center <- runif(1, min = .3, max = .7)
+    y_center <- runif(1, min = .3, max = .7)
+    radius <- runif(1, min = .05, max = .25)
+    
+    # add +1 to all points inside the circle
+    art <- art |>
+      mutate(
+        paint = paint + is_within_circle(
+          x, y, x_center, y_center, radius
+        )
+      )
+  }
+  
+  # normalise paint to [0, 1] range and return
+  art$paint <- normalise(art$paint)
+  return(art)
+}
+
+#changed seed
+circle_art <- additive_circles(seed = 8590)
+
+circle_array <- circle_art |>
+  as.array(value = paint) 
+
+circle_shadow <- ray_shade(
+  heightmap = circle_array,
+  sunaltitude = 20, 
+  sunangle = 60,
+  zscale = .01,
+  multicore = TRUE
+)
+
+circle_scape <- circle_array |> 
+  height_shade() |>
+  add_shadow(
+    shadowmap = circle_shadow,
+    max_darken = .1 
+  )
+
+  
+tic()
+plot(circle_scape)
+toc()
+
 
 
 ```
