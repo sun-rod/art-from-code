@@ -3,8 +3,7 @@ title: "Art_from_code"
 format: html
 editor: visual
 toc: true
-  toc-location: left
-  code-fold: true 
+code-fold: true 
 execute: 
   warning: false
   
@@ -127,7 +126,7 @@ polar_art <- function(seed, n, palette) {
 polar_art(
   seed = 32, 
   n = 1000, 
-  palette = palette = c("red", "black", "white")
+  palette = c("red", "black", "white")
 )
 
 ```
@@ -167,7 +166,6 @@ colors <- sample_named_colors(n)
 colors <- factor(colors)
 
 polar_art(seed = 40, n = n, palette = colors)  
-  scale_color_manual(values = as.character(unique(colors)))
 
 
 ```
@@ -318,7 +316,7 @@ my_styled_plot(data = dat, palette = pal) + geom_point()
 
 
 
-##Shading exercises
+## Shading exercises
 
 ```{r loading-packages-2, echo=FALSE}
 library(rayshader)
@@ -671,12 +669,10 @@ toc()
 ```
 
 
-##Iterated Function Systems
+## Iterated Function Systems
+
 ```{r iterated-functions-1}
-library(ggplot2)
-library(tibble)
 library(purrr)
-library(dplyr)
 
 fern_transform <- function(coord, ind) {
   
@@ -692,13 +688,13 @@ fern_transform <- function(coord, ind) {
     off <- c(0, 1.6)                      
   }
   # coefficients for the right-side function f_3
-  if(ind == 4) {
+  if(ind == 3) {
     mat <- matrix(c(.2, .23, -.26, .22), 2, 2)
     off <- c(0, 1.6)                      
   }
   
   # coefficients for the left-side function f_4
-  if(ind == 1) {
+  if(ind == 4) {
     mat <- matrix(c(-.15, .26, .28, .24), 2, 2)
     off <- c(0, .44)                     
   }
@@ -708,6 +704,7 @@ fern_transform <- function(coord, ind) {
   return(coord)
 }
 
+# changed number of iterations
 fern_chaos <- function(iterations = 4000, seed = NULL) {
   if(!is.null(seed)) set.seed(seed)
   
@@ -745,14 +742,12 @@ fern_chaos <- function(iterations = 4000, seed = NULL) {
   return(coord_df)
 }
 
-#changed seed
+# changed seed
 fern_dat <- fern_chaos(seed = 32)
 
 pic <- ggplot(fern_dat, aes(x, y, colour = factor(transform))) +
-  #changed geom
-  geom_jitter(size = 1, stroke = 0) +
-  #changed coord
-  coord_polar() +
+  geom_point(size = 1, stroke = 0) +
+  coord_equal() +
   theme_void() + 
   guides(colour = guide_legend(
     title = "transformation", 
@@ -762,7 +757,14 @@ pic <- ggplot(fern_dat, aes(x, y, colour = factor(transform))) +
 plot(pic)
 ```
 
+eval = false for this chunk too because of another problem. It says that it "could not find function 'accumulate2'" which doesn't make sense because the package that it's in (purr) is installed and loaded. The chunk runs just fine and produces a plot, it just won't render
 ```{r chaos-game-for-unboxing}
+
+library(ggplot2)
+library(tibble)
+library(purrr)
+library(dplyr)
+library(tictoc)
 
 sample_canva2 <- function(seed = NULL, n = 4) {
   
@@ -861,20 +863,50 @@ pic <- unboxer_base(1000000, layers = layers, seed = seed) |>
   unbox_art(seed = seed, size = .2) 
 fname <- paste0("unboxer-base-", layers, "-", seed, ".png")
 
-
 plot(pic)
 
 toc()
-
-
 ```
 
 ```{r faster-chaos-with-rcpp}
-
-
+library(tibble)
 library(tictoc)
 library(Rcpp)
 library(here)
+library(ggplot2)
+
+sample_canva2 <- function(seed = NULL, n = 4) {
+  
+  if(!is.null(seed)) set.seed(seed)
+  sample(ggthemes::canva_palettes, 1)[[1]] |>
+    (\(x) colorRampPalette(x)(n))()  
+}
+
+unbox_art <- function(data, seed = NULL, size = 10) {
+  
+  # convert to data frame and sample a palette
+  data <- data |> as.data.frame() |> as_tibble()
+  names(data) <- c("x", "y", "c", "l", "t")[1:ncol(data)]
+  shades <- sample_canva2(seed)
+  
+  # render image as a scatter plot
+  ggplot(data, aes(x, y, colour = c)) +
+    geom_point(
+      size = size,
+      stroke = 0,
+      show.legend = FALSE
+    ) + 
+    theme_void() + 
+    coord_equal(xlim = c(-4, 4), ylim = c(-4, 4)) + 
+    scale_colour_gradientn(colours = shades) + 
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_y_continuous(expand = c(0, 0)) +
+    theme(panel.background = element_rect(
+      fill = shades[1], colour = shades[1]
+    ))
+}
+
+
 
 sourceCpp(file = here("materials", "unbox-fast.cpp"))
 
@@ -888,9 +920,14 @@ tic()
 dat |> unbox_art(seed = 90343, size = .1)
 toc()
 
+
 ```
 
 ```{r even-faster-chaos-with-raster-representation}
+
+library(tictoc)
+library(Rcpp)
+library(here)
 
 sourceCpp(file = here("materials", "unbox-grid.cpp"))
 
@@ -905,8 +942,7 @@ pretty_boxes <- function(
     iterations = 100000000, 
     layers = 5, 
     pixels = 4000, 
-    #changed background
-    background = "brown",
+    background = "black",
     border = 4,
     trim = .001
 ) {
@@ -920,8 +956,7 @@ pretty_boxes <- function(
     border = border
   )
   
-  #changed seed
-  shades <- c(background, sample_canva2(seed, n = 13233))
+  shades <- c(background, sample_canva2(seed, n = 157909))
   
   zlim <- quantile(mat, c(trim, 1 - trim))
   mat[mat < zlim[1]] <- zlim[1]
@@ -939,158 +974,16 @@ pretty_boxes <- function(
 }
 
 tic()
-pretty_boxes(1121, iterations = 10000000)
+pretty_boxes(1769, iterations = 10000000)
 toc()
-
 
 ```
 
-##Putting it all together
+## Putting it all together
 
 ```{r combining-shading-and-iterated-function-systems, eval = FALSE}
 
 # whatever I did here takes a really long time to run and it was still plotting after 5 minutes so I decided to set eval to false
-fern_transform <- function(coord, ind) {
-  
-  # coefficients for the stem function f_1
-  if(ind == 1) {
-    mat <- matrix(c(0, 0, 0, .16), 2, 2) # matrix to multiply
-    off <- c(0, 0)                       # offset vector to add
-  }
-  
-  # coefficients for the small leaflet function f_2
-  if(ind == 2) {
-    mat <- matrix(c(.85, -.04, .04, .85), 2, 2)
-    off <- c(0, 1.6)                      
-  }
-  # coefficients for the right-side function f_3
-  if(ind == 4) {
-    mat <- matrix(c(.2, .23, -.26, .22), 2, 2)
-    off <- c(0, 1.6)                      
-  }
-  
-  # coefficients for the left-side function f_4
-  if(ind == 1) {
-    mat <- matrix(c(-.15, .26, .28, .24), 2, 2)
-    off <- c(0, .44)                     
-  }
-  
-  # return the affine transformed coords
-  coord <- mat %*% coord + off
-  return(coord)
-}
-
-fern_chaos <- function(iterations = 4000, seed = NULL) {
-  if(!is.null(seed)) set.seed(seed)
-  
-  # which transformation to apply at each iteration
-  transform_index <- sample(
-    x = 1:4, 
-    size = iterations, 
-    replace= TRUE, 
-    prob = c(.01, .85, .07, .07)
-  )
-  
-  # initialise chaos game at the origin
-  start <- matrix(c(0, 0))
-  
-  # helper function to collapse accumulated output
-  bind_to_column_matrix <- function(lst) {
-    do.call(cbind, lst)
-  }
-  
-  # iterate until done!
-  coord_matrix <- transform_index |>
-    accumulate(fern_transform, .init = start) |>
-    bind_to_column_matrix() 
-  
-  # tidy the output, add extra columns, and return
-  coord_df <- t(coord_matrix) |> 
-    as.data.frame() 
-  names(coord_df) <- c("x", "y")
-  coord_df <- coord_df |>
-    as_tibble() |>
-    mutate(
-      transform = c(0, transform_index),
-      iteration = row_number() - 1
-    )
-  return(coord_df)
-}
-
-fern_dat <- fern_chaos(seed = 32)
-
-pic <- ggplot(fern_dat, aes(x, y, colour = factor(transform))) +
-  geom_jitter(size = 1, stroke = 0) +
-  coord_polar() +
-  theme_void() + 
-  guides(colour = guide_legend(
-    title = "transformation", 
-    override.aes = list(size = 5))
-  )
-
-is_within_circle <- function(x_coord, y_coord, x_center, y_center, radius) {
-  (x_coord - x_center)^2 + (y_coord - y_center)^2 < radius^2
-}
-
-additive_circles <- function(n = 10, pixels = 1000, seed = NULL) {
-  
-  if(!is.null(seed)) set.seed(seed)
-  
-  # setup canvas
-  art <- long_grid(
-    x = seq(0, 1, length.out = pixels),
-    y = seq(0, 1, length.out = pixels)
-  )
-  art$paint <- 0
-  
-  for(i in 1:n) {
-    
-    # sample a random circle
-    x_center <- runif(1, min = .3, max = .7)
-    y_center <- runif(1, min = .3, max = .7)
-    radius <- runif(1, min = .05, max = .25)
-    
-    # add +1 to all points inside the circle
-    art <- art |>
-      mutate(
-        paint = paint + is_within_circle(
-          x, y, x_center, y_center, radius
-        )
-      )
-  }
-  
-  # normalise paint to [0, 1] range and return
-  art$paint <- normalise(art$paint)
-  return(art)
-}
-
-#changed seed
-circle_art <- additive_circles(seed = 8590)
-
-circle_array <- circle_art |>
-  as.array(value = paint) 
-
-circle_shadow <- ray_shade(
-  heightmap = circle_array,
-  sunaltitude = 20, 
-  sunangle = 60,
-  zscale = .01,
-  multicore = TRUE
-)
-
-circle_scape <- circle_array |> 
-  height_shade() |>
-  add_shadow(
-    shadowmap = circle_shadow,
-    max_darken = .1 
-  )
-
-  
-tic()
-plot(circle_scape)
-toc()
-
-
 
 ```
 
